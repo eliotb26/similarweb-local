@@ -7,7 +7,7 @@ Similarweb, rebuilt in a day, running on your machine. Type a domain and get how
   <img src="docs/app-desktop.png" width="720" alt="similarweb-local's report on similarweb.com: Tranco rank #3,789, Chrome bucket dropping from top 50K to top 100K in June, AWS WAF and a fingerprinting script, 21 third parties in this load including an OpenAI ads pixel, React 17 on a Kestrel (.NET) server.">
 </picture>
 
-Free and open source, about 1,000 lines of TypeScript. No API keys and no account. Popularity comes from two public research datasets, and everything else comes from loading the page once in your own Chrome.
+Free and open source, about 1,100 lines of TypeScript. No API keys and no account. Popularity comes from two public research datasets, and everything else comes from loading the page once in your own Chrome.
 
 ## Quick start
 
