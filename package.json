@@ -1,0 +1,22 @@
+{
+  "name": "similarweb-local",
+  "version": "0.1.0",
+  "description": "Similarweb, rebuilt in a day, running on your Mac: popularity, stack, trackers and bot protection for any domain.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=23.6" },
+  "bin": { "swl": "src/cli.ts" },
+  "scripts": {
+    "start": "node src/cli.ts",
+    "serve": "node src/cli.ts serve",
+    "test": "node --test 'test/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "playwright-core": "1.56.1"
+  },
+  "devDependencies": {
+    "@types/node": "24.10.1",
+    "typescript": "5.9.3"
+  }
+}

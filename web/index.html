@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>similarweb-local</title>
+<style>
+  :root {
+    --bg: #ffffff; --ink: #1d1d1f; --gray: #6e6e73; --line: #e8e8ed; --accent: #0071e3; --soft: #f5f5f7;
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #000000; --ink: #f5f5f7; --gray: #a1a1a6; --line: #2c2c2e; --accent: #2997ff; --soft: #1c1c1e; }
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font: 15px/1.45 var(--font); font-feature-settings: "tnum"; -webkit-font-smoothing: antialiased; }
+  main { max-width: 760px; margin: 0 auto; padding: 72px 16px 96px; }
+  .eyebrow { font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: 0.01em; }
+  h1 { font-size: clamp(34px, 6vw, 52px); line-height: 1.04; letter-spacing: -0.035em; font-weight: 700; margin-top: 10px; }
+  h1 span { display: block; color: var(--gray); }
+  form { display: flex; gap: 10px; margin-top: 36px; }
+  input {
+    flex: 1; min-width: 0; font: 500 19px var(--font); color: var(--ink); background: var(--soft);
+    border: 1px solid transparent; border-radius: 999px; padding: 14px 22px; outline: none;
+    transition: border-color 150ms var(--ease), background 150ms var(--ease);
+  }
+  input:focus { border-color: var(--accent); background: var(--bg); }
+  button {
+    font: 600 16px var(--font); color: #fff; background: var(--accent); border: 0; border-radius: 999px;
+    padding: 0 26px; cursor: pointer; transition: transform 150ms var(--ease), opacity 150ms var(--ease);
+  }
+  button:hover { opacity: 0.88; }
+  button:active { transform: scale(0.97); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .hint { color: var(--gray); font-size: 13px; margin-top: 12px; min-height: 20px; }
+  #report { margin-top: 64px; opacity: 0; transform: translateY(8px); transition: opacity 400ms var(--ease), transform 400ms var(--ease); }
+  #report.on { opacity: 1; transform: none; }
+  .big { font-size: clamp(56px, 12vw, 96px); font-weight: 700; letter-spacing: -0.045em; line-height: 1; }
+  .big-sub { color: var(--gray); font-size: 17px; margin-top: 8px; }
+  section { margin-top: 56px; }
+  h2 { font-size: 13px; font-weight: 600; color: var(--gray); padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .row { display: grid; grid-template-columns: 150px 1fr; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .row .k { color: var(--gray); font-size: 13px; padding-top: 1px; }
+  .row .v { font-weight: 500; }
+  .row .v small { color: var(--gray); font-weight: 400; font-size: 13px; }
+  .own { color: var(--accent); }
+  .trend { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 8px; align-items: end; height: 120px; margin-top: 20px; }
+  .bar { width: 14px; justify-self: center; background: var(--line); border-radius: 999px; transform-origin: bottom; animation: rise 600ms var(--ease) both; }
+  .bar.now { background: var(--accent); }
+  .ticks { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 8px; color: var(--gray); font-size: 12px; margin-top: 8px; }
+  .ticks div { text-align: center; }
+  .note { color: var(--gray); font-size: 13px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .blocked { color: #d70015; }
+  @keyframes rise { from { transform: scaleY(0); } }
+  @media (prefers-reduced-motion: reduce) { .bar, #report { animation: none; transition: none; } }
+  @media (max-width: 520px) {
+    main { padding-top: 48px; }
+    form { flex-direction: column; }
+    button { padding: 14px; }
+    .row { grid-template-columns: 1fr; gap: 2px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">similarweb-local · runs on your machine</p>
+  <h1>Look up any website.<span>Rank, stack, trackers, bot walls.</span></h1>
+  <form id="f">
+    <input id="d" name="domain" placeholder="notion.com" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Domain" required>
+    <button id="go">Analyze</button>
+  </form>
+  <p class="hint" id="hint" aria-live="polite">Loads the page once in Chrome, about 10 seconds.</p>
+  <div id="report" aria-live="polite"></div>
+</main>
+<script>
+  const $ = (tag, props = {}, kids = []) => {
+    const el = Object.assign(document.createElement(tag), props);
+    for (const k of [].concat(kids)) el.append(k);
+    return el;
+  };
+  const LABEL = { 1000: "Top 1K", 5000: "Top 5K", 10000: "Top 10K", 50000: "Top 50K", 100000: "Top 100K", 500000: "Top 500K", 1000000: "Top 1M", 5000000: "Top 5M", 10000000: "Top 10M", 50000000: "Top 50M" };
+  const bucket = (b) => b == null ? "Not listed" : (LABEL[b] || `Top ${b.toLocaleString()}`);
+  const bytes = (n) => n < 1048576 ? `${Math.round(n / 1024)} KB` : `${(n / 1048576).toFixed(1)} MB`;
+  const month = (m) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(4) - 1)).toLocaleString("en-US", { month: "short", timeZone: "UTC" });
+  const row = (k, v) => $("div", { className: "row" }, [$("div", { className: "k", textContent: k }), $("div", { className: "v" }, v)]);
+
+  function popularity(p) {
+    const rank = p.trancoRank == null ? "Unranked" : `#${p.trancoRank.toLocaleString()}`;
+    const ch = p.trancoChange30d;
+    const sub = p.trancoRank == null ? "Not in Tranco's top million." :
+      ch ? `Tranco rank, ${ch > 0 ? "up" : "down"} ${Math.abs(ch).toLocaleString()} places in 30 days.` : "Tranco rank, flat over 30 days.";
+    const crux = p.crux;
+    // Higher bar = more popular: log scale over the bucket size.
+    const h = (b) => b == null ? 4 : Math.max(8, 120 - (Math.log10(b) - 3) * 22);
+    const trend = crux.length ? [
+      $("div", { className: "trend", style: `--n:${crux.length}` }, crux.map((c, i) =>
+        $("div", { className: `bar${i === crux.length - 1 ? " now" : ""}`, style: `height:${h(c.bucket)}px;animation-delay:${i * 50}ms`, title: `${month(c.month)}: ${bucket(c.bucket)}` }))),
+      $("div", { className: "ticks", style: `--n:${crux.length}` }, crux.map((c) => $("div", { textContent: `${month(c.month)} · ${bucket(c.bucket).replace("Top ", "")}` }))),
+    ] : [];
+    return [$("div", { className: "big", textContent: rank }), $("p", { className: "big-sub", textContent: sub }),
+      $("section", {}, [$("h2", { textContent: "Chrome visitors, monthly bucket (CrUX)" }), ...trend])];
+  }
+
+  function render(r) {
+    const out = document.getElementById("report");
+    out.replaceChildren();
+    out.classList.remove("on");
+    const prot = r.protection;
+    const protText = !prot ? "Page didn't load" : (prot.providers.join(", ") || "None seen");
+    const groups = {};
+    for (const v of r.vendors) (groups[v.category] ||= []).push(v);
+    const w = r.weight;
+    out.append(
+      ...popularity(r.popularity),
+      $("section", {}, [$("h2", { textContent: "Bot protection" }),
+        row("Seen", [protText, ...(prot && prot.blocked ? [$("small", { className: "blocked", textContent: `  · blocked this visit (${prot.status})` })] : [])])]),
+      $("section", {}, [$("h2", { textContent: `Third parties · ${r.vendors.length}` }),
+        ...Object.entries(groups).map(([cat, list]) => row(cat.replace("-", " "),
+          list.flatMap((v, i) => [i ? ", " : "", v.firstParty ? $("span", { className: "own", textContent: `${v.name} (own domain)` }) : v.name])))]),
+      $("section", {}, [$("h2", { textContent: "Stack" }),
+        ...(r.stack.length ? r.stack.map((s) => row(s.kind, [s.name, $("small", { textContent: `  ${s.evidence.length > 60 ? s.evidence.slice(0, 60) + "…" : s.evidence}` })])) : [row("—", "Nothing recognised")])]),
+      ...(w ? [$("section", {}, [$("h2", { textContent: "Page weight" }),
+        row("Downloaded", `${bytes(w.totalBytes)} (${bytes(w.scriptBytes)} JavaScript)`),
+        row("Requests", `${w.requests}, ${w.thirdPartyRequests} to ${w.thirdPartyHosts} other domains`),
+        row("Load", `${(w.loadMs / 1000).toFixed(1)} s`)])] : []),
+      ...(r.notes.length ? [$("section", {}, [$("h2", { textContent: "Notes" }), ...r.notes.map((n) => $("p", { className: "note", textContent: n }))])] : []),
+    );
+    requestAnimationFrame(() => out.classList.add("on"));
+  }
+
+  const form = document.getElementById("f"), input = document.getElementById("d"), go = document.getElementById("go"), hint = document.getElementById("hint");
+  async function run(domain) {
+    go.disabled = true;
+    hint.textContent = `Loading ${domain} in Chrome…`;
+    try {
+      const res = await fetch(`/api/report?domain=${encodeURIComponent(domain)}`);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Something went wrong");
+      hint.textContent = `${body.domain} · ${new Date(body.generatedAt).toLocaleTimeString()}`;
+      history.replaceState(null, "", `?d=${encodeURIComponent(body.domain)}`);
+      render(body);
+    } catch (e) {
+      hint.textContent = e.message;
+    } finally {
+      go.disabled = false;
+    }
+  }
+  form.addEventListener("submit", (e) => { e.preventDefault(); run(input.value); });
+  const start = new URLSearchParams(location.search).get("d");
+  if (start) { input.value = start; run(start); }
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+
+  similarweb.com  ·  Similarweb: AI-Powered Digital Data Intelligence Solutions
+
+  Popularity
+  Tranco rank      #3,789 (up 303 over 30 days)
+  Chrome (CrUX)    Apr top 50K → May top 50K → Jun top 100K → Jul top 100K → Aug top 100K → Sep top 100K
+
+  Bot protection
+  AWS WAF, Fingerprinting script
+
+  Stack
+  framework        React  (https://static-us-east-1.similarcdn.com/static_assets/lite/js/react_v.17.0.2.production.min.js)
+  library          Loadable Components (code splitting)  (window.__LOADABLE_LOADED_CHUNKS__)
+  library          webpack  (webpackChunk* global)
+  platform         WordPress  (/wp-content/)
+  cdn              Amazon CloudFront  (x-amz-cf-id header)
+  server           Kestrel  (server header)
+
+  Third parties   29 vendors, 21 of them tracking or ads
+  accessibility    UserWay
+  ads              Google Ads (DoubleClick), Google Ads conversions, Google Ads remarketing, Google Ads, TikTok Pixel, LinkedIn Insight, OpenAI Ads pixel, Microsoft Ads (UET), Meta Pixel
+  ai               Knock AI, Limy
+  analytics        Mixpanel, Matomo (own domain), Google Analytics 4 (own domain), Google Analytics
+  bot-protection   AWS WAF
+  cdn              Amazon S3, Amazon CloudFront
+  consent          Cookiebot
+  feature-flags    GrowthBook
+  fingerprinting   fingerprintjs2 (open source)
+  fonts            Google Fonts
+  marketing        G2 Buyer Intent, Chili Piper
+  session-replay   Microsoft Clarity
+  social           Google Sign-In
+  tag-manager      Google Tag Manager, Google Tag Manager (own domain)
+
+  Page weight
+  191 requests, 6.3 MB (3.4 MB of JavaScript), loaded in 0.5 s
+  178 requests to 43 other domains
+
+  · Library versions in script URLs: fingerprintjs2 2.1.4, react 17.0.2, react-dom 17.0.2
+
