@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { detectProtection } from "../src/detect/protection.ts";
 import { detectLibraryVersions, detectStack } from "../src/detect/stack.ts";
-import { classifyRequest, detectVendors, loadVendorRules } from "../src/detect/vendors.ts";
-import { similarwebCapture } from "./fixtures.ts";
+import { classifyRequest, detectVendors, loadVendorRules, sharesBrand } from "../src/detect/vendors.ts";
+import { req, similarwebCapture } from "./fixtures.ts";
 
 const rules = loadVendorRules();
 const domains = ["similarweb.com"];
@@ -60,14 +60,19 @@ test("AWS WAF and fingerprinting are detected; a 200 page is not blocked", () =>
   assert.equal(p.blocked, false);
 });
 
-test("a CloudFront 403 is reported as blocked by AWS WAF", () => {
+test("a CloudFront 403 is blocked, without guessing which product refused it", () => {
   const p = detectProtection({
     ...similarwebCapture, status: 403, title: "ERROR: The request could not be satisfied",
     cookieNames: [], requests: [], html: "<h1>403 ERROR</h1>The request could not be satisfied.",
   });
   assert.equal(p.blocked, true);
-  assert.deepEqual(p.providers, ["AWS WAF"]);
+  assert.deepEqual(p.providers, ["CloudFront refused (403)"]);
   assert.equal(p.challenge, "request could not be satisfied");
+});
+
+test("'access denied' in the page body is not a block; only the title counts", () => {
+  const p = detectProtection({ ...similarwebCapture, html: '<script>{"error":"Access denied for guests"}</script>' });
+  assert.equal(p.blocked, false);
 });
 
 test("a Cloudflare challenge page is blocked even with status 200", () => {
@@ -76,5 +81,32 @@ test("a Cloudflare challenge page is blocked even with status 200", () => {
     cookieNames: ["__cf_bm"], requests: [], html: "",
   });
   assert.equal(p.blocked, true);
-  assert.ok(p.providers.includes("Cloudflare Bot Management"));
+  assert.ok(p.providers.includes("Cloudflare bot cookie (__cf_bm)"));
+});
+
+test("a tracker-shaped script on someone else's host isn't called the site's own", () => {
+  const hit = classifyRequest("https://stats.randomsaas.com/js/script.js", domains, rules);
+  assert.equal(hit?.name, "Plausible-style analytics");
+  assert.equal(hit?.firstParty, false);
+});
+
+test("Facebook SDK in any locale is the SDK, not the ads pixel", () => {
+  assert.equal(classifyRequest("https://connect.facebook.net/de_DE/sdk.js", domains, rules)?.name, "Facebook SDK");
+  assert.equal(classifyRequest("https://connect.facebook.net/de_DE/fbevents.js", domains, rules)?.name, "Meta Pixel");
+  assert.equal(classifyRequest("https://dynamodb.us-east-1.amazonaws.com/", domains, rules), null);
+});
+
+test("a plain #root div or Preact is not React", () => {
+  const names = detectStack({
+    ...similarwebCapture, globals: [], html: '<div id="root"></div>',
+    requests: [req("https://cdn.example.com/preact-10.5.0.js")],
+  }).map((s) => s.name);
+  assert.ok(!names.includes("React"), names.join(", "));
+});
+
+test("brand matching links sister domains but not lookalikes", () => {
+  assert.ok(sharesBrand("matomo.similarweb.io", "similarweb.com"));
+  assert.ok(sharesBrand("stats.bbc.co.uk", "bbc.co.uk"));
+  assert.ok(!sharesBrand("similarweb.evil.com", "notsimilar.com"));
+  assert.ok(!sharesBrand("cdn.io", "io.com"));
 });

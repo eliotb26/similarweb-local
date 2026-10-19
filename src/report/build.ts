@@ -29,6 +29,7 @@ export interface ReportInputs {
   readonly capture: PageCapture | null;
   readonly captureError: string | null;
   readonly tranco: readonly RankPoint[];
+  readonly trancoError?: boolean;
   readonly crux: readonly CruxPoint[];
   readonly rules: readonly VendorRule[];
   readonly now: Date;
@@ -57,7 +58,7 @@ export function buildReport(input: ReportInputs): Report {
       : []),
     ...(domains.length > 1 ? [`${domain} redirects to ${domains[1]}. Popularity above is for ${domain}; run it on ${domains[1]} too.`] : []),
     ...(versions.length > 0 ? [`Library versions in script URLs: ${versions.join(", ")}`] : []),
-    ...(input.tranco.length === 0 ? ["Not in Tranco's top 1M, or Tranco was unreachable."] : []),
+    ...(input.trancoError ? ["Couldn't reach Tranco, so the rank is missing. Try again in a minute."] : []),
   ];
   const latest = input.tranco.at(-1);
   return {
@@ -69,6 +70,7 @@ export function buildReport(input: ReportInputs): Report {
       trancoRank: latest?.rank ?? null,
       trancoHistory: input.tranco,
       trancoChange30d: rankChange(input.tranco),
+      trancoError: input.trancoError ?? false,
       crux: input.crux,
     },
     protection,

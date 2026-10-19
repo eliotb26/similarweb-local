@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
 import { chromium, type Browser, type Request, type Response } from "playwright-core";
 import { PROBED_GLOBALS } from "../detect/stack.ts";
+import { withTimeout } from "../timeout.ts";
 import type { CapturedRequest, PageCapture } from "../types.ts";
 
 const CHROME_PATHS = [
@@ -17,6 +18,10 @@ export interface CaptureOptions {
   readonly timeoutMs: number;
 }
 
+const HARD_LIMIT_SLACK_MS = 15_000;
+const REQUEST_INFO_MS = 3_000;
+const REQUEST_LIST_MS = 10_000;
+
 export const DEFAULT_CAPTURE: CaptureOptions = { headed: false, settleMs: 5_000, timeoutMs: 30_000 };
 
 export function findChrome(): string {
@@ -31,7 +36,7 @@ export async function launchBrowser(headed: boolean, args: readonly string[] = [
 
 async function requestBytes(req: Request): Promise<number> {
   try {
-    const sizes = await req.sizes();
+    const sizes = await withTimeout(req.sizes(), REQUEST_INFO_MS, () => ({ responseBodySize: 0, responseHeadersSize: 0 }));
     return sizes.responseBodySize + sizes.responseHeadersSize;
   } catch {
     return 0; // Aborted or still streaming when the page closed.
@@ -45,7 +50,7 @@ export async function capturePage(browser: Browser, url: string, opts: CaptureOp
   const page = await context.newPage();
   const finished: Promise<CapturedRequest>[] = [];
   const toCaptured = async (req: Request, failed: boolean): Promise<CapturedRequest> => {
-    const res = failed ? null : await req.response().catch(() => null);
+    const res = failed ? null : await withTimeout(req.response().catch(() => null), REQUEST_INFO_MS, () => null);
     return {
       url: req.url(), method: req.method(), resourceType: req.resourceType(),
       status: res?.status() ?? null, bytes: failed ? 0 : await requestBytes(req), failed,
@@ -60,11 +65,20 @@ export async function capturePage(browser: Browser, url: string, opts: CaptureOp
     if (res.request().isNavigationRequest() && res.frame() === page.mainFrame()) lastDocument = res;
   });
 
+  // A page that never settles (busy JS loop, endless redirects) would leave the
+  // calls below pending forever. Closing the context makes them all reject.
+  const hardLimit = setTimeout(() => void context.close().catch(() => {}), opts.timeoutMs + opts.settleMs + HARD_LIMIT_SLACK_MS);
   const started = Date.now();
   try {
-    const first = await page.goto(url, { waitUntil: "load", timeout: opts.timeoutMs }).catch(() => null);
+    let navError: string | null = null;
+    const first = await page.goto(url, { waitUntil: "load", timeout: opts.timeoutMs }).catch((e: unknown) => {
+      navError = e instanceof Error ? e.message.split("\n")[0] : String(e);
+      return null;
+    });
     const loadMs = Date.now() - started;
-    await page.waitForTimeout(opts.settleMs);
+    const response = lastDocument ?? first;
+    if (!response && navError !== null) throw new Error(`Couldn't reach ${url}: ${navError}`);
+    await page.waitForTimeout(opts.settleMs).catch(() => {});
 
     const [title, html, globals, cookies, navLoadMs] = await Promise.all([
       page.title().catch(() => ""),
@@ -84,20 +98,21 @@ export async function capturePage(browser: Browser, url: string, opts: CaptureOp
       }).catch(() => null),
     ]);
 
-    const response = lastDocument ?? first;
+    const latest = lastDocument ?? response;
     return {
       requestedUrl: url,
       finalUrl: page.url(),
-      status: response?.status() ?? null,
+      status: latest?.status() ?? null,
       title,
-      headers: response ? await response.allHeaders() : {},
+      headers: latest ? await latest.allHeaders().catch(() => ({})) : {},
       html,
       cookieNames: cookies.map((c) => c.name),
       globals,
-      requests: await Promise.all(finished),
+      requests: await withTimeout(Promise.all(finished), REQUEST_LIST_MS, () => []),
       loadMs: navLoadMs ?? loadMs,
     };
   } finally {
-    await context.close();
+    clearTimeout(hardLimit);
+    await context.close().catch(() => {});
   }
 }

@@ -17,8 +17,12 @@ interface Match {
   readonly firstParty: boolean;
 }
 
-// A rule is "host" or "host/path-prefix". Longest rule wins, so
-// "google.com/rmkt" beats a plain "google.com".
+const pathPattern = (path: string): RegExp =>
+  new RegExp(`^${path.split("*").map((part) => part.replace(/[.+?^${}()|[\]\\]/g, "\\$&")).join("[^/]+")}`);
+
+// A rule is "host" or "host/path-prefix", where "*" in the path stands for one
+// segment ("connect.facebook.net/*/sdk" covers every locale). Longest rule
+// wins, so "google.com/rmkt" beats a plain "google.com".
 function matchRule(url: URL, rules: readonly VendorRule[]): VendorRule | null {
   let best: VendorRule | null = null;
   for (const rule of rules) {
@@ -26,7 +30,7 @@ function matchRule(url: URL, rules: readonly VendorRule[]): VendorRule | null {
     const host = slash === -1 ? rule.host : rule.host.slice(0, slash);
     const path = slash === -1 ? "" : rule.host.slice(slash);
     const hostOk = url.hostname === host || url.hostname.endsWith(`.${host}`);
-    if (!hostOk || !url.pathname.startsWith(path)) continue;
+    if (!hostOk || !pathPattern(path).test(url.pathname)) continue;
     if (best === null || rule.host.length > best.host.length) best = rule;
   }
   return best;
@@ -68,9 +72,27 @@ export function classifyRequest(rawUrl: string, siteDomains: string | readonly s
   const rule = matchRule(url, rules);
   if (rule) return { name: rule.name, category: rule.category, firstParty: false };
 
-  // Tracker shapes on a company's other domains (similarweb.io for similarweb.com).
+  // Tracker shapes on another host: the company's own when it shares the
+  // brand name (matomo.similarweb.io for similarweb.com), otherwise a host
+  // running that tool for someone else.
   const shaped = matchFirstPartyTracker(url);
-  return shaped ? { ...shaped, firstParty: true } : null;
+  return shaped ? { ...shaped, firstParty: sharesBrand(url.hostname, siteDomains) } : null;
+}
+
+// "similarweb" from "similarweb.com"; "bbc" from "bbc.co.uk".
+function brandOf(domain: string): string {
+  const labels = domain.split(".");
+  const twoPartSuffix = labels.length > 2 && labels.at(-2)!.length <= 3 && labels.at(-1)!.length === 2;
+  return labels.at(twoPartSuffix ? -3 : -2) ?? domain;
+}
+
+export function sharesBrand(host: string, siteDomains: string | readonly string[]): boolean {
+  const list = typeof siteDomains === "string" ? [siteDomains] : siteDomains;
+  const labels = host.toLowerCase().split(".");
+  return list.some((d) => {
+    const brand = brandOf(d);
+    return brand.length >= 3 && labels.slice(0, -1).includes(brand);
+  });
 }
 
 export function detectVendors(

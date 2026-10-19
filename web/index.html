@@ -87,10 +87,13 @@
   const row = (k, v) => $("div", { className: "row" }, [$("div", { className: "k", textContent: k }), $("div", { className: "v" }, v)]);
 
   function popularity(p) {
-    const rank = p.trancoRank == null ? "Unranked" : `#${p.trancoRank.toLocaleString()}`;
+    const rank = p.trancoError ? "—" : p.trancoRank == null ? "Unranked" : `#${p.trancoRank.toLocaleString()}`;
     const ch = p.trancoChange30d;
-    const sub = p.trancoRank == null ? "Not in Tranco's top million." :
-      ch ? `Tranco rank, ${ch > 0 ? "up" : "down"} ${Math.abs(ch).toLocaleString()} places in 30 days.` : "Tranco rank, flat over 30 days.";
+    const sub = p.trancoError ? "Couldn't reach Tranco. Try again in a minute." :
+      p.trancoRank == null ? "Not in Tranco's top million." :
+      ch == null ? "Tranco rank." :
+      ch === 0 ? "Tranco rank, flat over 30 days." :
+      `Tranco rank, ${ch > 0 ? "up" : "down"} ${Math.abs(ch).toLocaleString()} places in 30 days.`;
     const crux = p.crux;
     // Higher bar = more popular: log scale over the bucket size.
     const h = (b) => b == null ? 4 : Math.max(8, 120 - (Math.log10(b) - 3) * 22);
@@ -149,7 +152,7 @@
   }
   form.addEventListener("submit", (e) => { e.preventDefault(); run(input.value); });
   const start = new URLSearchParams(location.search).get("d");
-  if (start) { input.value = start; run(start); }
+  if (start) input.value = start; // Prefill only; a link from another site shouldn't start a lookup.
 </script>
 </body>
 </html>

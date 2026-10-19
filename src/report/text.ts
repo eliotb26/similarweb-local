@@ -41,7 +41,7 @@ export function renderText(r: Report): string {
     `  ${r.domain}${r.title ? `  ·  ${r.title.slice(0, 70)}` : ""}`,
     "",
     "  Popularity",
-    `  Tranco rank      ${p.trancoRank === null ? "not ranked" : `#${p.trancoRank.toLocaleString("en-US")}${change}`}`,
+    `  Tranco rank      ${p.trancoError ? "unavailable" : p.trancoRank === null ? "not in the top 1M" : `#${p.trancoRank.toLocaleString("en-US")}${change}`}`,
     `  Chrome (CrUX)    ${trendLine(p.crux)}`,
     "",
     "  Bot protection",

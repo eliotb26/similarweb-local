@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -20,8 +20,15 @@ export async function cached(name: string, maxAgeMs: number, produce: () => Prom
   }
   const fresh = await produce();
   await mkdir(ROOT, { recursive: true });
-  await writeFile(path, fresh);
+  // Write then rename, so Ctrl+C or two runs at once never leave half a file.
+  const tmp = `${path}.${process.pid}.${Date.now()}.tmp`;
+  await writeFile(tmp, fresh);
+  await rename(tmp, path);
   return fresh;
+}
+
+export async function forget(name: string): Promise<void> {
+  await rm(cachePath(name), { force: true });
 }
 
 export async function fetchBuffer(url: string, timeoutMs = 60_000): Promise<Buffer> {

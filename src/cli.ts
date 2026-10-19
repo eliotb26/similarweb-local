@@ -66,7 +66,9 @@ async function main(argv: readonly string[]): Promise<void> {
 }
 
 if (import.meta.main) {
-  main(process.argv.slice(2)).catch((e: unknown) => {
+  // Exit explicitly once the report is printed: a stray socket or browser
+  // handle must not keep a one-shot lookup alive.
+  main(process.argv.slice(2)).then(() => process.exit(0), (e: unknown) => {
     process.stderr.write(`${e instanceof Error ? e.message : String(e)}\n`);
     process.exit(1);
   });

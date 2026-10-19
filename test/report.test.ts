@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { parseArgs } from "../src/cli.ts";
+import { isPrivateAddress } from "../src/analyze.ts";
+import { isTrustedRequest } from "../src/server.ts";
 import { loadVendorRules } from "../src/detect/vendors.ts";
 import { isSameSite, normalizeDomain } from "../src/domain.ts";
 import { bucketFor, recentMonths } from "../src/popularity/crux.ts";
@@ -99,4 +101,26 @@ test("cli flags are validated", () => {
   assert.equal(parseArgs(["serve", "--port", "8080"]).port, 8080);
   assert.throws(() => parseArgs(["--port", "99999"]), /--port/);
   assert.throws(() => parseArgs(["--nope"]), /Unknown option/);
+});
+
+test("private and loopback addresses are recognised", () => {
+  for (const a of ["127.0.0.1", "10.1.2.3", "192.168.1.1", "172.20.0.1", "169.254.169.254", "100.64.0.1", "::1", "fd00::1", "::ffff:10.0.0.1"]) {
+    assert.ok(isPrivateAddress(a), a);
+  }
+  for (const a of ["8.8.8.8", "172.32.0.1", "2606:4700::1"]) assert.ok(!isPrivateAddress(a), a);
+});
+
+test("the local server only trusts its own page", () => {
+  const ok = (headers: Record<string, string>): boolean => isTrustedRequest({ headers }, 4321);
+  assert.ok(ok({ host: "127.0.0.1:4321", "sec-fetch-site": "same-origin" }));
+  assert.ok(ok({ host: "localhost:4321" }));
+  assert.ok(!ok({ host: "evil.com:4321" }), "DNS rebinding");
+  assert.ok(!ok({ host: "127.0.0.1:4321", origin: "https://evil.com" }));
+  assert.ok(!ok({ host: "127.0.0.1:4321", "sec-fetch-site": "cross-site" }));
+});
+
+test("an unreachable Tranco says so instead of 'unranked'", () => {
+  const r = buildReport({ domain: "x.com", capture: null, captureError: null, tranco: [], trancoError: true, crux: [], rules: [], now: new Date() });
+  assert.equal(r.popularity.trancoError, true);
+  assert.match(renderText(r), /Tranco rank\s+unavailable/);
 });

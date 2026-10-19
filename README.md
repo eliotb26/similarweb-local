@@ -7,7 +7,7 @@ Similarweb, rebuilt in a day, running on your machine. Type a domain and get how
   <img src="docs/app-desktop.png" width="720" alt="similarweb-local's report on similarweb.com: Tranco rank #3,789, Chrome bucket dropping from top 50K to top 100K in June, AWS WAF and a fingerprinting script, 21 third parties in this load including an OpenAI ads pixel, React 17 on a Kestrel (.NET) server.">
 </picture>
 
-Free and open source, about 930 lines of TypeScript. No API keys and no account. Popularity comes from two public research datasets, and everything else comes from loading the page once in your own Chrome.
+Free and open source, about 1,000 lines of TypeScript. No API keys and no account. Popularity comes from two public research datasets, and everything else comes from loading the page once in your own Chrome.
 
 ## Quick start
 
@@ -17,7 +17,7 @@ npm install
 node src/cli.ts notion.com
 ```
 
-You need Node 23.6 or newer (it runs the TypeScript directly) and Google Chrome. Set `SWL_CHROME=/path/to/chrome` if Chrome lives somewhere unusual.
+You need Node 24.2 or newer (it runs the TypeScript directly) and Google Chrome. Set `SWL_CHROME=/path/to/chrome` if Chrome lives somewhere unusual.
 
 ```
   notion.com  ·  The AI workspace that works for you. | Notion
@@ -27,7 +27,7 @@ You need Node 23.6 or newer (it runs the TypeScript directly) and Google Chrome.
   Chrome (CrUX)    Apr top 50K → May top 50K → Jun top 50K → Jul top 50K → Aug top 50K → Sep top 10K
 
   Bot protection
-  Cloudflare Bot Management
+  Cloudflare bot cookie (__cf_bm)
 
   Stack
   framework        Next.js  (window.__NEXT_DATA__)
@@ -60,22 +60,22 @@ The first run downloads six months of Chrome popularity lists (about 50 MB) into
 | **Popularity** | Estimated visits from a panel of browser extensions, apps and data partners | [Tranco](https://tranco-list.eu) rank with 30 days of history, plus the monthly [Chrome UX Report](https://developer.chrome.com/docs/crux) bucket (top 1K, 10K, 100K...) from [crux-top-lists](https://github.com/zakird/crux-top-lists) |
 | **Technologies** | Paid add-on | Framework, platform, host, CDN and server, each with the evidence it was found from |
 | **Trackers** | Not shown | Every analytics, ads, session-replay, fingerprinting and AI vendor, grouped, including trackers proxied through the site's own domain |
-| **Bot protection** | Not shown | AWS WAF, Cloudflare, Akamai, DataDome, HUMAN, Imperva, Kasada, CAPTCHAs, and whether this visit was blocked |
+| **Bot protection** | Not shown | AWS WAF, Cloudflare challenges, Akamai, DataDome, HUMAN, Imperva, Kasada, CAPTCHAs, and whether this visit was blocked |
 | **Page weight** | Not shown | Requests, megabytes, JavaScript, third-party domains, load time |
 
 **What it can't do:** tell you a site gets 4.2M visits a month. Nobody can see that from outside. Similarweb's numbers come from watching what millions of people browse, and that panel is the product. Here you get ranks and buckets that are honest about their precision. If you need visit counts for your own site, your analytics already has them.
 
 ## Six sites, measured
 
-From `scripts/bench.sh` on an M-series Mac, 19 Oct 2026 ([runs.csv](runs.csv)). Every number can change between loads because ads and tags fire differently each time.
+Headless runs from `scripts/bench.sh` on an M-series Mac, 19 Oct 2026 ([runs.csv](runs.csv)). Every number can change between loads because ads and tags fire differently each time. similarweb.com blocks headless Chrome; an earlier run in a visible window (`--headed`) the same day saw 28 third parties, 9 ad tags, 41 other domains and 5.8 MB. Repeated visible-window runs later got challenged too, so expect bot walls to tighten if you run it often.
 
 | Site | Tranco | Chrome bucket | Vendors | Ad tags | Third-party domains | Page | Headless Chrome |
 |---|---|---|---|---|---|---|---|
-| similarweb.com | 3,789 | top 100K | 28 | 9 | 41 | 5.8 MB | **blocked (403)** |
-| semrush.com | 2,284 | top 10K | 18 | 9 | 63 | 2.7 MB | allowed |
-| ahrefs.com | 2,186 | top 50K | 10 | 8 | 19 | 2.2 MB | allowed |
-| stripe.com | 215 | top 50K | 14 | 9 | 37 | 2.7 MB | allowed |
-| notion.com | 1,436 | top 10K | 15 | 8 | 34 | 3.0 MB | allowed |
+| similarweb.com | 3,789 | top 100K | – | – | – | – | **blocked (403)** |
+| semrush.com | 2,284 | top 10K | 17 | 9 | 55 | 2.3 MB | allowed |
+| ahrefs.com | 2,186 | top 50K | 10 | 8 | 18 | 2.2 MB | allowed |
+| stripe.com | 215 | top 50K | 14 | 9 | 38 | 2.7 MB | allowed |
+| notion.com | 1,436 | top 10K | 15 | 8 | 33 | 3 MB | allowed |
 | linear.app | 9,293 | top 50K | 0 | 0 | 0 | 2.9 MB | allowed |
 
 The CrUX bucket counts only `https://domain` and `https://www.domain`. Stripe's dashboard and docs live on other subdomains, which is why it ranks #215 overall but only top 50K here.
@@ -94,7 +94,7 @@ I looked at similarweb.com's own homepage before building this. Here's what a fi
 ## How it works
 
 1. **Load.** Chrome opens the site once (`src/capture/browser.ts`) and waits five seconds for late tags. It records every request, the top-level response headers, the site's own cookies, and which well-known globals (`__NEXT_DATA__`, `__NUXT__`, `Shopify`...) exist on `window`. It never clicks or types.
-2. **Detect.** Requests are matched against `data/vendors.json` (118 hostname rules, longest match wins) plus request shapes that give away first-party proxies, such as `/g/collect?tid=G-...`. Stack and bot-wall rules live in `src/detect/`.
+2. **Detect.** Requests are matched against `data/vendors.json` (121 hostname rules, longest match wins) plus request shapes that give away first-party proxies, such as `/g/collect?tid=G-...`. Stack and bot-wall rules live in `src/detect/`.
 3. **Rank.** Tranco's API and the cached CrUX lists are queried at the same time as the page load.
 4. **Report.** Everything becomes one plain JSON object (`src/types.ts`) that the terminal, the web app and `--json` all render.
 
@@ -103,14 +103,14 @@ Adding a vendor is one line in `data/vendors.json`.
 ## Development
 
 ```sh
-npm test          # 26 tests, including an offline end-to-end run against a fake site
+npm test          # 35 tests, including an offline end-to-end run against a fake site
 npm run typecheck
 scripts/bench.sh  # regenerate runs.csv
 ```
 
 ## Use it fairly
 
-This tool loads public pages the way a browser does, once per lookup, and identifies itself in API requests. Don't point it at sites whose terms forbid automated access, and don't use it to get around a bot wall. When a site blocks it, it says so and stops.
+This tool loads public pages the way a browser does, once per lookup, and identifies itself in API requests. The local web app only answers its own page (it checks Host, Origin and Sec-Fetch-Site) and refuses domains that resolve to private network addresses. Don't point it at sites whose terms forbid automated access, and don't use it to get around a bot wall. When a site blocks it, it says so and stops.
 
 Not affiliated with Similarweb Ltd. "Similarweb" is their trademark, used here only to describe what this project is a rebuild of.
 

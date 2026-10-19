@@ -60,6 +60,13 @@ test("captures a real page load and finds stack, trackers and first-party GA", a
   assert.ok(report.notes.some((n) => n.includes("fingerprintjs2 2.1.4")));
 });
 
+test("a domain that doesn't answer is an error, not an empty report", async () => {
+  await assert.rejects(
+    capturePage(browser, "http://127.0.0.1:1/", { headed: false, settleMs: 100, timeoutMs: 5_000 }),
+    /Couldn't reach/,
+  );
+});
+
 test("local server: page, validation, and method/route errors (no browser needed)", async () => {
   const app = await serve(0, DEFAULT_ANALYZE, false);
   const base = `http://127.0.0.1:${app.port}`;
@@ -69,6 +76,7 @@ test("local server: page, validation, and method/route errors (no browser needed
     assert.match(await page.text(), /similarweb-local/);
     assert.match(page.headers.get("content-security-policy") ?? "", /default-src 'self'/);
 
+    assert.equal((await fetch(`${base}/`, { headers: { "sec-fetch-site": "cross-site" } })).status, 403);
     const bad = await fetch(`${base}/api/report?domain=localhost`);
     assert.equal(bad.status, 400);
     assert.match((await bad.json() as { error: string }).error, /doesn't look like a domain/);

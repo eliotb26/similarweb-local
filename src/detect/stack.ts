@@ -33,9 +33,9 @@ const RULES: readonly Rule[] = [
   { name: "Angular", kind: "framework", test: (c) => htmlMatch(c, /ng-version="[\d.]+"/) },
   { name: "Vue", kind: "framework", test: (c) => has(c.globals, "Vue") ? "window.Vue" : htmlMatch(c, /data-v-[0-9a-f]{8}/) },
   { name: "React", kind: "framework", test: (c, s) =>
-      scriptMatch(s, /react(-dom)?[._-]v?\.?\d|react-dom\.production/) ??
+      scriptMatch(s, /(?:^|\/)react(-dom)?[._-](?:v\.?)?\d|(?:^|\/)react-dom\.production/) ??
       (has(c.globals, "__NEXT_DATA__") || has(c.globals, "__remixContext") || has(c.globals, "___gatsby") ? "implied by framework" : null) ??
-      htmlMatch(c, /data-reactroot|id="__next"|id="root"/) },
+      htmlMatch(c, /data-reactroot/) },
   { name: "Server-side rendered app data", kind: "library", test: (c) =>
       ["__APP_DATA__", "__INITIAL_STATE__", "__APOLLO_STATE__"].find((g) => has(c.globals, g)) ?? null },
   { name: "Loadable Components (code splitting)", kind: "library", test: (c) => has(c.globals, "__LOADABLE_LOADED_CHUNKS__") ? "window.__LOADABLE_LOADED_CHUNKS__" : null },

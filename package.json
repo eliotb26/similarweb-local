@@ -4,7 +4,7 @@
   "description": "Similarweb, rebuilt in a day, running on your Mac: popularity, stack, trackers and bot protection for any domain.",
   "type": "module",
   "license": "MIT",
-  "engines": { "node": ">=23.6" },
+  "engines": { "node": ">=24.2" },
   "bin": { "swl": "src/cli.ts" },
   "scripts": {
     "start": "node src/cli.ts",

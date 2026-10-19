@@ -69,6 +69,7 @@ export interface Popularity {
   readonly trancoRank: number | null;
   readonly trancoHistory: readonly RankPoint[];
   readonly trancoChange30d: number | null;
+  readonly trancoError: boolean;
   readonly crux: readonly CruxPoint[];
 }
 

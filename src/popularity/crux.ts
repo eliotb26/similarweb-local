@@ -3,7 +3,7 @@
 // zakird/crux-top-lists mirrors those buckets as one CSV per month.
 
 import { gunzipSync } from "node:zlib";
-import { cached, fetchBuffer } from "../cache.ts";
+import { cached, fetchBuffer, forget } from "../cache.ts";
 import type { CruxPoint } from "../types.ts";
 
 const BASE = "https://raw.githubusercontent.com/zakird/crux-top-lists/main/data/global/";
@@ -33,11 +33,18 @@ export function bucketFor(csv: string, domain: string): number | null {
 }
 
 async function monthCsv(month: string): Promise<string | null> {
+  const name = `crux-${month}.csv.gz`;
+  let gz: Buffer;
   try {
-    const gz = await cached(`crux-${month}.csv.gz`, YEAR_MS, () => fetchBuffer(`${BASE}${month}.csv.gz`, 120_000));
-    return gunzipSync(gz).toString("utf8");
+    gz = await cached(name, YEAR_MS, () => fetchBuffer(`${BASE}${month}.csv.gz`, 120_000));
   } catch {
     return null; // Month not published yet, or offline.
+  }
+  try {
+    return gunzipSync(gz).toString("utf8");
+  } catch {
+    await forget(name); // Corrupt download: fetch it again next time.
+    return null;
   }
 }
 
